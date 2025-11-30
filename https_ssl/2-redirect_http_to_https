@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# This script configures HAProxy to redirect all HTTP traffic to HTTPS for bonasse.site
+
+CONFIG="/etc/haproxy/haproxy.cfg"
+
+sudo bash -c "cat > $CONFIG" << 'EOF'
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+    maxconn 4096
+
+defaults
+    log global
+    option httplog
+    option dontlognull
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+
+# Frontend to redirect HTTP to HTTPS
+frontend http_in
+    bind *:80
+    redirect scheme https code 301 if !{ ssl_fc }
+
+# HTTPS frontend (SSL termination)
+frontend https_in
+    bind *:443 ssl crt /etc/haproxy/certs/bonasse.site.pem
+    default_backend web_backend
+
+backend web_backend
+    balance roundrobin
+    server web01 127.0.0.1:80 check
+EOF
+
+sudo systemctl restart haproxy
+echo "HAProxy configured: all HTTP requests are redirected to HTTPS for bonasse.site"

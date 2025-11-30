@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# This script shows the IPv4 addresses of selected subdomains for bonasse.site
+
+domain="bonasse.site"
+
+for sub in www web-01 web-02 lb-01; do
+    ip=$(dig +short "$sub.$domain" A)
+
+    if [ -n "$ip" ]; then
+        echo "$sub.$domain has address $ip"
+    else
+        echo "$sub.$domain does not have an A record"
+    fi
+done
+

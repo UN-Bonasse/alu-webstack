@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Installs HAProxy with SSL termination for bonasse.site
+
+DOMAIN="bonasse.site"
+CERT_PATH="/etc/haproxy/certs"
+CONFIG="/etc/haproxy/haproxy.cfg"
+
+sudo apt-get update -y
+sudo apt-get install -y haproxy openssl
+
+sudo mkdir -p "$CERT_PATH"
+
+sudo openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 \
+    -subj "/CN=$DOMAIN" \
+    -keyout "$CERT_PATH/$DOMAIN.key" \
+    -out "$CERT_PATH/$DOMAIN.crt"
+
+cat "$CERT_PATH/$DOMAIN.key" "$CERT_PATH/$DOMAIN.crt" | sudo tee "$CERT_PATH/$DOMAIN.pem" > /dev/null
+
+sudo bash -c "cat > $CONFIG" << 'EOF'
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+    maxconn 4096
+
+defaults
+    log global
+    option httplog
+    option dontlognull
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+
+frontend https_in
+    bind *:443 ssl crt /etc/haproxy/certs/bonasse.site.pem
+    default_backend web_backend
+
+backend web_backend
+    balance roundrobin
+    server web01 127.0.0.1:80 check
+EOF
+
+sudo systemctl restart haproxy
+echo "HAProxy HTTPS termination configured for $DOMAIN"
